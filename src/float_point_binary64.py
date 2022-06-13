@@ -11,16 +11,18 @@ def float_to_bin(value):
     return struct.unpack(">Q", struct.pack(">d", value))[0]
 
 
-def split_float_point(float_number):
+def disassemble_float(float_number):
     int_representation = float_to_bin(float_number)
 
     sign = (0x80_00_00_00_00_00_00_00 & int_representation) >> 63
     exponent = (0x7f_f0_00_00_00_00_00_00 & int_representation) >> 52
     fraction = int_representation & 0x0f_ff_ff_ff_ff_ff_ff
+    #     m = ((dw & 0x7FFFFF ) | 0x800000) if e != 0 \
+    #         else ((dw & 0x7FFFFF ) << 1)
 
-    print("sign\t\t", pretty(bin(sign)))
-    print("exponent\t", pretty(bin(exponent), FLOAT64_EXPONENT_PRECISION))
-    print("fraction\t", pretty(bin(fraction), FLOAT64_FRACTION_PRECISION))
+    print("sign\t\t", (hex(sign)))
+    print("exponent\t", (hex(exponent)))
+    print("fraction\t", (hex(fraction)))
 
     return sign, exponent, fraction
 
@@ -39,7 +41,11 @@ def to_binary_str(int_value, num_bits):
     return normalized
 
 
-def exec_fraction(fraction):
+def exec_fraction(fraction, exponent):
+    if 0 == exponent:
+        return 0, 0
+    if 0 == fraction:
+        return 1, 0
     binary_str = to_binary_str(fraction, FLOAT64_FRACTION_PRECISION)
     fraction_parts = []
     for i in range(0, len(binary_str)):
@@ -55,6 +61,8 @@ def exec_fraction(fraction):
 
 
 def calc_exponent(exponent):
+    if 0 == exponent:
+        return 0
     binary_str = to_binary_str(exponent, FLOAT64_EXPONENT_PRECISION)
     num_exponent = 0
     for i in range(0, len(binary_str)):
@@ -67,7 +75,7 @@ def calc_exponent(exponent):
 
 def build_float(sign, exponent, fraction):
     s = -1 if sign else 1
-    fraction_numerator, fraction_denominator = exec_fraction(fraction)
+    fraction_numerator, fraction_denominator = exec_fraction(fraction, exponent)
 
     exp = calc_exponent(exponent)
     finish_shift = exp - fraction_denominator
@@ -76,6 +84,6 @@ def build_float(sign, exponent, fraction):
 
 if __name__ == "__main__":
     number = 12.00000
-    sign, exponent, fraction = split_float_point(number)
+    sign, exponent, fraction = disassemble_float(number)
     value = build_float(sign, exponent, fraction)
     print(value)
