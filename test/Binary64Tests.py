@@ -1,4 +1,4 @@
-import unittest
+import unittest, math
 
 
 from float_point_binary64 import build_float, disassemble_float
@@ -114,3 +114,52 @@ class Binary64Tests(unittest.TestCase):
     def test_assemble_negative_one(self):
         value = build_float(1, 0x3ff, 0)
         self.assertEqual(-1, value)
+
+    def test_nan(self):
+        value = math.nan
+        sign, exponent, fraction = disassemble_float(value)
+        # print(hex(sign), hex(exponent), hex(fraction))
+        self.assertEqual(0, sign)
+        self.assertEqual(0x7ff, exponent)
+        self.assertEqual(0x0008_0000_0000_0000, fraction)
+
+    def test_assembly_nan(self):
+        value = build_float(0, 0x7ff, 0x0008_0000_0000_0000)
+        self.assertTrue(math.isnan(value))
+
+    def test_negative_nan(self):
+        value = -math.nan
+        sign, exponent, fraction = disassemble_float(value)
+        # print(hex(sign), hex(exponent), hex(fraction))
+        self.assertEqual(1, sign)
+        self.assertEqual(0x7ff, exponent)
+        self.assertEqual(0x0008_0000_0000_0000, fraction)
+
+    def test_assembly_negative_nan(self):
+        value = build_float(1, 0x7ff, 0x0008_0000_0000_0000)
+        self.assertTrue(math.isnan(value))
+
+    def test_inf(self):
+        value = math.inf
+        sign, exponent, fraction = disassemble_float(value)
+        # print(hex(sign), hex(exponent), hex(fraction))
+        self.assertEqual(0, sign)
+        self.assertEqual(0x7ff, exponent)
+        self.assertEqual(0, fraction)
+
+    def test_assembly_inf(self):
+        value = build_float(0, 0x7ff, 0)
+        self.assertTrue(math.isinf(value))
+
+    def test_negative_inf(self):
+        value = -math.inf
+        sign, exponent, fraction = disassemble_float(value)
+        # print(hex(sign), hex(exponent), hex(fraction))
+        self.assertEqual(1, sign)
+        self.assertEqual(0x7ff, exponent)
+        self.assertEqual(0, fraction)
+
+    def test_assembly_negative_inf(self):
+        value = build_float(1, 0x7ff, 0)
+        self.assertTrue(math.isinf(value))
+        self.assertEqual(-math.inf, value)

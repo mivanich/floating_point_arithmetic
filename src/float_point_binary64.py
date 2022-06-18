@@ -1,5 +1,6 @@
 import struct
 import math
+from utils import pretty
 
 # the format of the double precision floating point described at
 # https://en.wikipedia.org/wiki/Double-precision_floating-point_format
@@ -23,7 +24,7 @@ def disassemble_float(float_number):
 
     sign = int_representation >> 63
     exponent = int_representation >> FLOAT64_FRACTION_PRECISION & 0x07FF
-    fraction = int_representation & 0x0f_ff_ff_ff_ff_ff_ff
+    fraction = int_representation & 0x00_0f_ff_ff_ff_ff_ff_ff
 
     return sign, exponent, fraction
 
@@ -59,18 +60,38 @@ def calc_exponent(exponent):
     for i in range(0, int(math.log2(exponent)) + 1):
         dig = exponent & (1 << i)
         if dig:
-            num_exponent += 2 ** i
+            num_exponent += 1 << i
     num_exponent -= EXPONENT_BIAS
     return num_exponent
 
 
+def build_float_as_int(sign, exponent, fraction):
+    return (sign << 63) | (exponent << FLOAT64_FRACTION_PRECISION) | fraction
+
+
+def bits_to_float(int_value):
+    return struct.unpack('!d', struct.pack('!Q', int_value))[0]
+
+
+def is_finite(exponent, fraction):
+    is_nan = exponent == 0x7ff and fraction == 0x0008_0000_0000_0000
+    is_inf = exponent == 0x7ff and fraction == 0
+    return not (is_inf or is_nan)
+
+
 def build_float(sign, exponent, fraction):
+    if not is_finite(exponent, fraction):
+        # can't get nan via multiplication.
+        # inf is possible when fraction != 0, actually
+        return bits_to_float(build_float_as_int(sign, exponent, fraction))
+
     s = -1 if sign else 1
+
     fraction_numerator, fraction_denominator = exec_fraction(fraction, exponent)
 
     exp = calc_exponent(exponent)
     finish_shift = exp - fraction_denominator
-    return s * 2 ** finish_shift * fraction_numerator
+    return s * 2.0 ** finish_shift * fraction_numerator
 
 
 if __name__ == "__main__":
