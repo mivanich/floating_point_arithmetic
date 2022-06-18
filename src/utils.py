@@ -1,3 +1,6 @@
+import struct
+
+
 def pretty(str_value, num_digits=-1):
     if not type(str_value) is str:
         raise Exception("str_value in the method pretty must be of type 'str'")
@@ -29,3 +32,9 @@ def pretty(str_value, num_digits=-1):
                     out_str += "_"
             return out_str
     return str_value
+
+
+def get_bits32(float_number):
+    bites = struct.pack('>f', float_number)
+    int_representation = struct.unpack('>l', bites)[0]
+    return int_representation

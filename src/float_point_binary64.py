@@ -1,44 +1,31 @@
 import struct
 import math
-from utils import pretty
+
+# the format of the double precision floating point described at
+# https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 
 FLOAT64_SIGN_PRECISION = 1
 FLOAT64_EXPONENT_PRECISION = 11
 FLOAT64_FRACTION_PRECISION = 52
+EXPONENT_BIAS = 1023
 
 
 def float_to_bin(value):
+    """
+    :param value float value to be transformed to integer with the same binary representation
+    :returns integer representation of the passed value with the same binary representation
+    """
     return struct.unpack(">Q", struct.pack(">d", value))[0]
 
 
 def disassemble_float(float_number):
     int_representation = float_to_bin(float_number)
 
-    sign = (0x80_00_00_00_00_00_00_00 & int_representation) >> 63
-    exponent = (0x7f_f0_00_00_00_00_00_00 & int_representation) >> 52
+    sign = int_representation >> 63
+    exponent = int_representation >> FLOAT64_FRACTION_PRECISION & 0x07FF
     fraction = int_representation & 0x0f_ff_ff_ff_ff_ff_ff
-    #     m = ((dw & 0x7FFFFF ) | 0x800000) if e != 0 \
-    #         else ((dw & 0x7FFFFF ) << 1)
-
-    print("sign\t\t", (hex(sign)))
-    print("exponent\t", (hex(exponent)))
-    print("fraction\t", (hex(fraction)))
 
     return sign, exponent, fraction
-
-
-def to_binary_str(int_value, num_bits):
-    BIN_PREFIX = "0b"
-    str_value = bin(int_value)
-    if not str_value.startswith(BIN_PREFIX):
-        raise Exception("The string", str_value, "has wrong format: it doesn't start from 0b")
-
-    prefix_len = len(BIN_PREFIX)
-    normalized = str_value[prefix_len:len(str_value)]
-    if len(normalized) < num_bits:
-        short = num_bits - len(normalized)
-        normalized = ("0" * short) + normalized
-    return normalized
 
 
 def exec_fraction(fraction, exponent):
@@ -46,30 +33,34 @@ def exec_fraction(fraction, exponent):
         return 0, 0
     if 0 == fraction:
         return 1, 0
-    binary_str = to_binary_str(fraction, FLOAT64_FRACTION_PRECISION)
-    fraction_parts = []
-    for i in range(0, len(binary_str)):
-        dig = binary_str[i]
-        if "1" == dig:
-            fraction_parts.append(2 ** (i + 1))
-    max = fraction_parts[-1]
-    updated_fractions = [max / x for x in fraction_parts]
-    sum_all_elems = sum(updated_fractions) + max
-    shift = math.log2(max)
 
-    return sum_all_elems, shift
+    numerators = []
+    initial_value = 1 << FLOAT64_FRACTION_PRECISION - 1
+    for i in range(0, FLOAT64_FRACTION_PRECISION):
+        dig = fraction & (initial_value >> i)
+        if dig:
+            numerators.append(2 << i)
+    # the last numerator is the biggest one, so it must be a common multiple for all previous values
+    common_multiple = numerators[-1]
+    updated_numerators = [common_multiple / x for x in numerators]
+    # adding of the common_multiple here is for
+    # sum + 1, as 1 is presented as (common_multiple/common_multiple) - numerator is added to sum_all_numerators,
+    # whereas denominator is used to evaluate the denominator of the fraction
+    sum_all_numerators = sum(updated_numerators) + common_multiple
+    denominator = math.log2(common_multiple)
+
+    return sum_all_numerators, denominator
 
 
 def calc_exponent(exponent):
     if 0 == exponent:
         return 0
-    binary_str = to_binary_str(exponent, FLOAT64_EXPONENT_PRECISION)
     num_exponent = 0
-    for i in range(0, len(binary_str)):
-        dig = binary_str[FLOAT64_EXPONENT_PRECISION - i - 1]
-        if "1" == dig:
+    for i in range(0, int(math.log2(exponent)) + 1):
+        dig = exponent & (1 << i)
+        if dig:
             num_exponent += 2 ** i
-    num_exponent -= 1023
+    num_exponent -= EXPONENT_BIAS
     return num_exponent
 
 
